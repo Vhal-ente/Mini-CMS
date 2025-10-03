@@ -1,0 +1,43 @@
+name: Deploy to Vercel
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code
+      - uses: actions/checkout@v4
+
+      # Set up Node.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Install Vercel CLI
+      - run: npm install -g vercel@48.2.0
+
+      # Cache dependencies
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Install dependencies
+      - run: npm ci
+
+      # Pull Vercel environment (for Vercel project settings)
+      - run: vercel pull --yes --environment=${{ github.event_name == 'pull_request' && 'preview' || 'production' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Build the app
+      - run: npm run vercel-build
+
+      # Deploy to Vercel
+      - run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} ${{ github.event_name == 'pull_request' && '--no-wait' || '--prod' }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
